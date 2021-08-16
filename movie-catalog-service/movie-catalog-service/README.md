@@ -201,3 +201,21 @@ changed to
 "http://rating-data-service:8083/ratingdata/users/"+userId
 
 
+
+@LoadBalanced :- 
+It is also doing client side load balancing. 
+
+Let's try by running jar at different port using below command.
+
+
+java -Dserver.port=8206 -jar movie-info-service-0.01-SNAPSHOT.jar
+
+
+once you run this command on cmd from jar location then it will start new server on given 8206 port.
+
+You can verify it from Eureka server UI.
+
+Now Application will work same as previous. Here Load balancing happens.
+
+Yes This load balancing algo is not efficient but it does the load balancing.
+
