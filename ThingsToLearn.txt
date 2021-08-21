@@ -1,0 +1,7 @@
+Service Oriented Architecture
+Rest Template working
+HttpRequest and Response Templates
+Oauth 2.0 implementation
+payment gateway
+many projects
+https://www.youtube.com/results?search_query=Integrate+3rd+party+rest+api+with+spring+boot+application

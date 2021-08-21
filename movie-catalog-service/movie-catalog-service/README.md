@@ -219,3 +219,227 @@ Now Application will work same as previous. Here Load balancing happens.
 
 Yes This load balancing algo is not efficient but it does the load balancing.
 
+
+
+===========================================================
+<h2>Fault Tolerance and Resilience</h2>
+
+Calling external API : Connecting to MovieDb to get information about movie
+
+Create account in movieDb website
+https://www.themoviedb.org/
+
+Generate Api key, It will be used while making call to this movieDb
+
+There will be sample Api, Use it to get the information
+
+
+Now Check the response after using external api
+
+<h3>How to make this resilient</h3>
+Current application is not fault tolerant and resilient.
+We have not handled any error yet.
+
+<h2>Issues with Microservices </h2>
+<ul>
+    <li><b>microservice instance goes down</b> :- Solution1 : Run multiple Instances</li>
+    <li><b>microservice instance is slow</b> :-</li>
+Why  one slow service affect another service even neither of both are not calling
+each other??
+Because Slower service holds threads and it blocks threads and fast service also 
+become slow. number of threads calling slow service increase nd affects fast 
+service by holding maximum of thread for longer time.
+<br><br><b>How to solve this problem??</b>
+<ul><li><b>Use Timeout :</b> Removing threads when they are taking too 
+much time</li>
+<li><b>Use Circuit Breaker pattern : </b>Detect and don't send req for a duration</li></ul>
+<br><b> How to set Timeout on spring restTemplate</b>
+<br>
+<b>Note :</b> Any service calling to another service, can have a timeout. 
+In our scenario, movieCatelog service calling two services and 
+Movie info service calling external movieDb Service.
+
+Added below restTemplate code with timeout
+
+HttpComponentsClientHttpRequestFactory clientHttpRequestFactory = new HttpComponentsClientHttpRequestFactory();
+clientHttpRequestFactory.setConnectTimeout(3000);
+return new RestTemplate(clientHttpRequestFactory);
+
+<h3>Does this solve the issue : ???  : No </h3> 
+<b>What is Issue now ?? : </b> Actually thread will wait for 
+given timeout even response from another microservice is ready. 
+This way every thread wait for 3 sec(time out in above code) and it will 
+block the process and it will again slow down.
+
+<br><b> How to use Circuit Breaker pattern??</b>
+<ul>
+    <li>Detect something is wrong</li>
+    <li>Take Temporary steps to avoid the situation getting worse</li>
+    <li>Deactivate the <b>problem component</b> so that it does not affect downstream components</li>
+</ul>
+
+The service taking time, calling service will block further call to this 
+service. It will give enough time to recover that service and then start calling to check
+the response time and all.
+
+<h4>When to break the circuit?? -> </h4> 
+On single failure or single timeout?? <b>No, never</b>
+
+Go with some mechanism to break the circuit.
+
+<h4>How to handle the call when circuit is broken??</h4>
+fallback mechanism. An alternative mechanism.
+
+<h5>What all options to do (fallback) in circuit break time.</h5>
+<ul>
+<li>Throw a Error, But this is not good idea</li>
+<li>Return a fallback "default" response</li>
+<li>Save previous responses (cache) and use that when possible</li>
+</ul>
+
+<h4>Why circuit breakers</h4>
+<ul>
+    <li>Failing Fast</li>
+    <li>Fallback functionality</li>
+    <li>Automatic recovery</li>
+</ul>
+
+<h4>Circuit Breaker Pattern</h4>
+When to Break circuit || what to do when circuit breaks || When to resume requests
+
+<h2>Nothing to worry much, we have framework for Circuit Breaker -> Hystrix</h2>
+<h4>What is Hystrix??</h4>
+<ul>
+    <li>Open Source Library originally created by Netflix</li>
+    <li>Implements circuit breaker pattern so you don't have to do so</li>
+    <li>Give it the configuration params and it does the work</li>
+    <li>Works well with spring boot</li>
+</ul>
+<h3>Adding Hystrix to spring boot microservice</h3>
+<ul>
+    <li>Add a Maven spring-cloud-starter-netflix-hystrix dependency</li>
+    <li>Add @EnableCircuitBreaker annotations to the application class</li>
+    <li>Add @HystrixCommand to methods that need circuit breaker</li>
+    <li>Configure Hystrix behaviour</li>
+</ul>
+Got Our scenario, Adding Circuit breaker to movieCatelog service and 
+killing movie info service to check the behaviour in case of circuit break.
+
+1. Adding dependencies
+<!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-starter-netflix-hystrix -->
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-netflix-hystrix</artifactId>
+    <version>2.2.2.RELEASE</version>
+</dependency>
+
+2. @EnableCircuitBreaker in MovieCatalogServiceApplication class
+
+3. @HystrixCommand in MovieCatelogResource class, above getCatalog method
+
+4. Configure Hystrix Behaviour
+    Change point 3 with fallback parameter
+
+@HystrixCommand(fallbackMethod = "getFallBackCatelog")
+
+and create a method with same name as fallBackMethod parameter value and same signature 
+of original method(getCatalog).
+
+//This method will get call when circuit breaks
+public List<CatalogItem> getFallBackCatelog(@PathVariable("userId") String userId){
+    return Arrays.asList(new CatalogItem("No Movies","",0));
+}
+
+//Fall back methods should be simple hard coded because if it also fails
+then we need another fallback for this.
+
+
+<h3>Testing it</h3>
+
+Killed the movie info service and run the movie catelog service. Now circuit breaks
+and fallback method got call.
+
+
+<h3>How does Hystrix do all these stuff??</h3>
+Using Hystrix proxy class that monitor all things, and redirect fallbackmethods
+
+
+<h3>Now making change in scenario, In present scenario either of two microservice 
+fails then circuit is breaking and same fallbackmethod is getting call</h3>
+
+Enhancing th code and splitting both
+
+splitted to two methods and used @HystrixCommand(fallbackMethod = "fallBackMethodName")
+to them.
+
+Still there is error. :- The Fallback does not get picked up at all -> Why??
+
+Because of the proxy class.
+proxy class - A wrapper around the instance of the API class
+
+
+If two methods are in same class, hystrix is not going to work. 
+
+<h2>Sorry, I did not understand well for this. Check out this video : https://www.youtube.com/watch?v=1EIb-4ipWFk&list=PLtp5ZM1VZTVFgsli3mFszXHkymTkk7WMN&index=18 </h2>
+
+Solution is to keep those method in another class and do the need full.
+
+Creating two service class, one for movie info and one for rating.
+
+normal and fallback both methods should be in same service class.
+
+Working well, tried by stopping rating service once and movie info service once.
+
+<h3>Configuring Hystrix parameters</h3>
+
+@HystrixCommand(fallbackMethod = "getFallbackUserRating",
+    commandProperties = {
+        @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "2000"),
+        @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "5"),
+        @HystrixProperty(name = "circuitBreaker.errorThresholdPercentage", value = "50"),
+        @HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds", value = "5000"),
+    }
+)
+
+The values used in properties are subject to discuss as per requirement
+
+<h4>Hystrix Dashboard</h4>
+All details in visual format
+
+Steps
+1. Add dependencies (dashboard and actuator)
+   <!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-starter-netflix-hystrix-dashboard -->
+   	<dependency>
+   		<groupId>org.springframework.cloud</groupId>
+   		<artifactId>spring-cloud-starter-netflix-hystrix-dashboard</artifactId>
+   		<version>2.2.0.RELEASE</version>
+   	</dependency>
+
+   	<!-- https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-actuator -->
+   	<dependency>
+   		<groupId>org.springframework.boot</groupId>
+   		<artifactId>spring-boot-starter-actuator</artifactId>
+   		<version>2.4.5</version>
+   	</dependency>
+
+2. Add @EnableHystrixDashboard in catalog application class
+
+3. Add below line in applicaiton.properties file
+   management.endpoints.web.exposure.include=hystrix.stream
+   
+Restart server and open url
+localhost:8081/hystrix
+
+paster actuator url in text field
+http://localhost:8081/actuator/hystrix.stream
+
+open 
+localhost:8081/catalog/username and click multiple time 4-5 times and switch 
+to localhost:8081/hystrix and see the data
+
+
+<h3>Bulkhead Pattern</h3>
+Compartment like pattern 
+More details : https://www.youtube.com/watch?v=Kh3HxWk8YF4&list=PLtp5ZM1VZTVFgsli3mFszXHkymTkk7WMN&index=22
+
+</ul>
