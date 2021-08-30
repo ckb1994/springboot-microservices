@@ -443,3 +443,29 @@ Compartment like pattern
 More details : https://www.youtube.com/watch?v=Kh3HxWk8YF4&list=PLtp5ZM1VZTVFgsli3mFszXHkymTkk7WMN&index=22
 
 </ul>
+
+
+
+<h2>Microservice Configuration</h2>
+Examples
+<ul>
+    <li>Database connections</li>
+    <li>Credentials</li>
+    <li>Feature flags</li>
+    <li>Business Logic configuration parameters</li>
+    <li>Scenario Testing</li>
+    <li>Spring Boot configuration</li>
+</ul>
+
+<h4>For only config changes, It is not required to do build, test the application etc. We can do
+it directly without impacting anything</h4>
+
+<h3>Goal</h3>
+<ul>
+<li>Externalized</li>
+<li>Environment specific</li>
+<li>Consistent</li>
+<li>Version History</li>
+<li>Real-time Management</li>
+</ul>
+
